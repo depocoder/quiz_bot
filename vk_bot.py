@@ -1,15 +1,19 @@
 import os
 import random
 import json
+import time
+import logging
 from dotenv import load_dotenv
 import vk_api
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
 from vk_api.longpoll import VkLongPoll, VkEventType
 import redis
+from requests.exceptions import ConnectionError
 from quiz import parse_quiz
 
 
+logger = logging.getLogger(__name__)
 load_dotenv()
 REDIS_CONN = redis.Redis(host=os.getenv('REDIS_HOST'), password=os.getenv(
     'REDIS_PASSWORD'), port=os.getenv('REDIS_PORT'), db=0)
@@ -85,9 +89,17 @@ def main(event, vk_api):
 
 
 if __name__ == "__main__":
-    vk_session = vk_api.VkApi(token=os.getenv('VK_TOKEN'))
-    vk_api = vk_session.get_api()
-    longpoll = VkLongPoll(vk_session)
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-            main(event, vk_api)
+    while True:
+        try:
+            vk_session = vk_api.VkApi(token=os.getenv('VK_TOKEN'))
+            vk_api = vk_session.get_api()
+            longpoll = VkLongPoll(vk_session)
+            for event in longpoll.listen():
+                if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                    main(event, vk_api)
+        except ConnectionError:
+            logging.exception('ConnectionError - перезапуск через 30 секунд')
+            time.sleep(30)
+            continue
+        except Exception as E:
+            logging.exception(E)
