@@ -1,24 +1,34 @@
-import random
-import os
-
-import vk_api as vk
-from vk_api.longpoll import VkLongPoll, VkEventType
-from dotenv import load_dotenv
+# -*- coding: utf-8 -*-
+import vk_api
+from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+from vk_api.utils import get_random_id
 
 
-def echo(event, vk_api):
-    vk_api.messages.send(
-        user_id=event.user_id,
-        message=event.text,
-        random_id=random.randint(1,1000)
+
+def create_keyboard():
+    keyboard = VkKeyboard(one_time=True)
+
+    keyboard.add_button('Новый вопрос', color=VkKeyboardColor.POSITIVE)
+    keyboard.add_button('Сдаться', color=VkKeyboardColor.NEGATIVE)
+
+    keyboard.add_line()
+    keyboard.add_button('Мой счёт', color=VkKeyboardColor.SECONDARY)
+    return keyboard
+
+
+def main():
+    vk_session = vk_api.VkApi(token='108fa3cc5ac6077a91cb5a97c1c760105e99617cde2ccd757e0def491ce9568c9c810afc4e5c4024d32bc')
+    vk = vk_session.get_api()
+    keyboard = create_keyboard()
+    
+
+    vk.messages.send(
+        peer_id=182467266,
+        random_id=get_random_id(),
+        keyboard=keyboard.get_keyboard(),
+        message='Пример клавиатуры'
     )
 
 
-if __name__ == "__main__":
-    load_dotenv()
-    vk_session = vk.VkApi(token=os.getenv('VK_TOKEN'))
-    vk_api = vk_session.get_api()
-    longpoll = VkLongPoll(vk_session)
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-            echo(event, vk_api)
+if __name__ == '__main__':
+    main()
