@@ -1,10 +1,19 @@
-# -*- coding: utf-8 -*-
 import os
+import random
+import json
 from dotenv import load_dotenv
 import vk_api
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
+from vk_api.longpoll import VkLongPoll, VkEventType
+import redis
+from quiz import parse_quiz
 
+
+load_dotenv()
+REDIS_CONN = redis.Redis(host=os.getenv('REDIS_HOST'), password=os.getenv(
+    'REDIS_PASSWORD'), port=os.getenv('REDIS_PORT'), db=0)
+QUIZ = parse_quiz()
 
 
 def create_keyboard():
@@ -18,20 +27,67 @@ def create_keyboard():
     return keyboard
 
 
-def main():
-    load_dotenv()
-    vk_session = vk_api.VkApi(token=os.getenv('VK_TOKEN'))
-    vk = vk_session.get_api()
-    keyboard = create_keyboard()
-    
+def create_question(event, vk_api, keyboard):
+    question, answer = random.choice(list(QUIZ.items()))
+    REDIS_CONN.set(f"vk-{event.user_id}", json.dumps([question, answer]))
+    reply_to_user(event, vk_api, keyboard, message=question)
 
-    vk.messages.send(
-        peer_id=182467266,
+
+def reply_to_user(event, vk_api, keyboard, message):
+    vk_api.messages.send(
+        user_id=event.user_id,
         random_id=get_random_id(),
         keyboard=keyboard.get_keyboard(),
-        message='Пример клавиатуры'
-    )
+        message=message)
 
 
-if __name__ == '__main__':
-    main()
+def check_answer(event, vk_api, keyboard, user_message, question_and_answer):
+    question, answer = json.loads(question_and_answer)
+    short_answer = answer[answer.find('\n')+1:answer.find('.')]
+    if user_message == 'Новый вопрос':
+        reply_to_user(
+            event, vk_api, keyboard,
+            message=f'Вы не ответили на старый вопрос!\n{question}')
+    elif user_message == 'Сдаться':
+        reply_to_user(
+            event, vk_api, keyboard, message=f'Правильный {answer}')
+        REDIS_CONN.delete(f"vk-{event.user_id}")
+    elif user_message in short_answer and len(user_message) >= (len(short_answer)-3):
+        reply_to_user(
+            event, vk_api, keyboard, message=f'Верно! {answer}')
+        REDIS_CONN.delete(f"vk-{event.user_id}")
+    else:
+        reply_to_user(
+            event, vk_api, keyboard,
+            message='Я не понял команду или ответ неверный.')
+
+
+def main(event, vk_api):
+    user_message = event.text
+    keyboard = create_keyboard()
+    question_and_answer = REDIS_CONN.get(f"vk-{event.user_id}")
+    if user_message in ['Здравствуйте', 'Приветствую', 'Привет', 'Ку']:
+        reply_to_user(
+            event, vk_api, keyboard,
+            message=('Приветствуем вас в нашей викторине!',
+                     'Чтобы получить вопрос нажмите кнопку <Новый вопрос>'))
+    elif not question_and_answer:
+        if user_message == 'Новый вопрос' or user_message == 'Сдаться':
+            create_question(event, vk_api, keyboard)
+        else:
+            reply_to_user(
+                event, vk_api, keyboard,
+                message='Я не понял команду или ответ неверный.')
+    else:
+        check_answer(
+            event, vk_api, keyboard,
+            user_message, question_and_answer)
+
+
+if __name__ == "__main__":
+    vk_session = vk_api.VkApi(token=os.getenv('VK_TOKEN'))
+    vk_api = vk_session.get_api()
+    longpoll = VkLongPoll(vk_session)
+    for event in longpoll.listen():
+        if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+            main(event, vk_api)
