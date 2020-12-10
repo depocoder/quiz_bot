@@ -66,7 +66,7 @@ def check_answer(update: Update, context: CallbackContext):
         update.message.reply_text(
             f'Вы не ответили на старый вопрос!\n{question}')
     elif user_message == 'Сдаться':
-        update.message.reply_text(f'Правильный\n{answer}')
+        update.message.reply_text(f'Правильный {answer}')
         return SEND_QUESTION
     elif user_message in short_answer and len(user_message) >= (len(short_answer)-3):
         update.message.reply_text(f"Верно! {answer}")
