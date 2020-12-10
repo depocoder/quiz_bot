@@ -11,6 +11,7 @@ from telegram.ext import (
 from quiz import parse_quiz
 
 
+logger = logging.getLogger(__name__)
 SEND_QUESTION, CHECK_ANSWER = range(2)
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,11 @@ def cancel(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
+def error_handler(update: Update, context: CallbackContext):
+    logger.error(
+        msg="Exception while handling an update:", exc_info=context.error)
+
+
 def check_answer(update: Update, context: CallbackContext):
     user_message = update.message.text
     question_and_answer = REDIS_CONN.get(f"tg-{update.effective_user.id}")
@@ -75,8 +81,8 @@ def check_answer(update: Update, context: CallbackContext):
 
 if __name__ == '__main__':
     updater = Updater(token=os.getenv("TG_TOKEN"), use_context=True)
-
     dispatcher = updater.dispatcher
+    dispatcher.add_error_handler(error_handler)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
 
