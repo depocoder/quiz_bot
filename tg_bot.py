@@ -8,28 +8,20 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Updater, CommandHandler, MessageHandler, Filters, CallbackContext,
     ConversationHandler)
+from quiz import parse_quiz
+
 
 SEND_QUESTION, CHECK_ANSWER = range(2)
 
-load_dotenv()
-r = redis.Redis(host=os.getenv('REDIS_HOST'), password=os.getenv('REDIS_PASSWORD'), port=os.getenv('REDIS_PORT'), db=0)
 logger = logging.getLogger(__name__)
-
-
-def parse_quiz():
-    with open("quiz-questions/1vs1200.txt", "r", encoding="KOI8-R") as my_file:
-        file_contents = my_file.read()
-
-    file_contents_splitten = file_contents.split('\n\n')
-    questions = [question for question in file_contents_splitten if 'Вопрос' in question]
-    answers = [answer for answer in file_contents_splitten if 'Ответ' in answer]
-    return dict(zip(questions, answers))
-
-
+load_dotenv()
+REDIS_CONN = redis.Redis(
+    host=os.getenv('REDIS_HOST'), password=os.getenv('REDIS_PASSWORD'),
+    port=os.getenv('REDIS_PORT'), db=0)
 QUIZ = parse_quiz()
 
 
-def start(update: Update, context: CallbackContext) -> None:
+def start(update: Update, context: CallbackContext):
     """Send a message when the command /start is issued."""
     custom_keyboard = [['Новый вопрос', 'Сдаться'],
                        ['Мой счёт']]
@@ -38,19 +30,20 @@ def start(update: Update, context: CallbackContext) -> None:
     return SEND_QUESTION
 
 
-def help_command(update: Update, context: CallbackContext) -> None:
+def help_command(update: Update, context: CallbackContext):
     """Send a message when the command /help is issued."""
     update.message.reply_text('Help!')
 
 
-def send_question(update: Update, context: CallbackContext) -> None:
+def send_question(update: Update, context: CallbackContext):
     question, answer = random.choice(list(QUIZ.items()))
-    r.set(update.effective_user.id, json.dumps([question, answer]))
+    REDIS_CONN.set(
+        f"tg-{update.effective_user.id}", json.dumps([question, answer]))
     update.message.reply_text(question)
     return CHECK_ANSWER
 
 
-def cancel(update: Update, context: CallbackContext) -> int:
+def cancel(update: Update, context: CallbackContext):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
     update.message.reply_text(
@@ -61,17 +54,18 @@ def cancel(update: Update, context: CallbackContext) -> int:
     return ConversationHandler.END
 
 
-def check_answer(update: Update, context: CallbackContext) -> None:
+def check_answer(update: Update, context: CallbackContext):
     user_message = update.message.text
-    question_and_answer = r.get(update.effective_user.id)
+    question_and_answer = REDIS_CONN.get(f"tg-{update.effective_user.id}")
     question, answer = json.loads(question_and_answer)
     short_answer = answer[answer.find('\n')+1:answer.find('.')]
     if user_message == 'Новый вопрос':
-        update.message.reply_text(f'Вы не ответили на старый вопрос!\n{question}')
+        update.message.reply_text(
+            f'Вы не ответили на старый вопрос!\n{question}')
     elif user_message == 'Сдаться':
         update.message.reply_text(f'Правильный\n{answer}')
         return SEND_QUESTION
-    elif user_message in short_answer and len(user_message) >= (len(short_answer)-1):
+    elif user_message in short_answer and len(user_message) >= (len(short_answer)-3):
         update.message.reply_text(f"Верно! {answer}")
         return SEND_QUESTION
     else:
