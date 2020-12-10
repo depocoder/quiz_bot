@@ -13,8 +13,6 @@ from quiz import parse_quiz
 
 logger = logging.getLogger(__name__)
 SEND_QUESTION, CHECK_ANSWER = range(2)
-
-logger = logging.getLogger(__name__)
 load_dotenv()
 REDIS_CONN = redis.Redis(
     host=os.getenv('REDIS_HOST'), password=os.getenv('REDIS_PASSWORD'),
@@ -48,10 +46,9 @@ def cancel(update: Update, context: CallbackContext):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
     update.message.reply_text(
-        'Bye! I hope we can talk again some day.',
+        'Пока. Хорошего вам дня!',
         reply_markup=ReplyKeyboardRemove()
     )
-
     return ConversationHandler.END
 
 
