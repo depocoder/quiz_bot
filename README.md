@@ -5,7 +5,7 @@
 ![пример телеграм](https://i.imgur.com/qY9j7Bc.png)
 
 ## Подготовка к запуску Mac OS
-Сначала зарегестрируйтесь на [redis](https://redis.io/). 
+Сначала зарегестрируйтесь на [redis](https://redis.io/)     
 Уставновить [Python 3+](https://www.python.org/downloads/)
 
 Установить, создать и активировать виртуальное окружение
