@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import os
+from dotenv import load_dotenv
 import vk_api
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
@@ -17,7 +19,8 @@ def create_keyboard():
 
 
 def main():
-    vk_session = vk_api.VkApi(token='108fa3cc5ac6077a91cb5a97c1c760105e99617cde2ccd757e0def491ce9568c9c810afc4e5c4024d32bc')
+    load_dotenv()
+    vk_session = vk_api.VkApi(token=os.getenv('VK_TOKEN'))
     vk = vk_session.get_api()
     keyboard = create_keyboard()
     
