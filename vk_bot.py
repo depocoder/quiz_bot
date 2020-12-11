@@ -14,9 +14,6 @@ from quiz import parse_quiz
 
 
 logger = logging.getLogger(__name__)
-load_dotenv()
-REDIS_CONN = redis.Redis(host=os.getenv('REDIS_HOST'), password=os.getenv(
-    'REDIS_PASSWORD'), port=os.getenv('REDIS_PORT'), db=0)
 QUIZ = parse_quiz()
 
 
@@ -31,9 +28,9 @@ def create_keyboard():
     return keyboard
 
 
-def create_question(event, vk_api, keyboard):
+def create_question(event, vk_api, keyboard, redis_conn):
     question, answer = random.choice(list(QUIZ.items()))
-    REDIS_CONN.set(f"vk-{event.user_id}", json.dumps([question, answer]))
+    redis_conn.set(f"vk-{event.user_id}", json.dumps([question, answer]))
     reply_to_user(event, vk_api, keyboard, message=question)
 
 
@@ -45,7 +42,8 @@ def reply_to_user(event, vk_api, keyboard, message):
         message=message)
 
 
-def check_answer(event, vk_api, keyboard, user_message, question_and_answer):
+def check_answer(event, vk_api, keyboard, user_message,
+                 question_and_answer, redis_conn):
     question, answer = json.loads(question_and_answer)
     short_answer = answer[answer.find('\n')+1:answer.find('.')]
     if user_message == 'Новый вопрос':
@@ -55,21 +53,21 @@ def check_answer(event, vk_api, keyboard, user_message, question_and_answer):
     elif user_message == 'Сдаться':
         reply_to_user(
             event, vk_api, keyboard, message=f'Правильный {answer}')
-        REDIS_CONN.delete(f"vk-{event.user_id}")
+        redis_conn.delete(f"vk-{event.user_id}")
     elif user_message in short_answer and len(user_message) >= (len(short_answer)-3):
         reply_to_user(
             event, vk_api, keyboard, message=f'Верно! {answer}')
-        REDIS_CONN.delete(f"vk-{event.user_id}")
+        redis_conn.delete(f"vk-{event.user_id}")
     else:
         reply_to_user(
             event, vk_api, keyboard,
             message='Я не понял команду или ответ неверный.')
 
 
-def process_message(event, vk_api):
+def process_message(event, vk_api, redis_conn):
     user_message = event.text
     keyboard = create_keyboard()
-    question_and_answer = REDIS_CONN.get(f"vk-{event.user_id}")
+    question_and_answer = redis_conn.get(f"vk-{event.user_id}")
     if user_message in ['Здравствуйте', 'Приветствую', 'Привет', 'Ку']:
         reply_to_user(
             event, vk_api, keyboard,
@@ -77,7 +75,7 @@ def process_message(event, vk_api):
                      'Чтобы получить вопрос нажмите кнопку <Новый вопрос>'))
     elif not question_and_answer:
         if user_message == 'Новый вопрос' or user_message == 'Сдаться':
-            create_question(event, vk_api, keyboard)
+            create_question(event, vk_api, keyboard, redis_conn)
         else:
             reply_to_user(
                 event, vk_api, keyboard,
@@ -85,10 +83,13 @@ def process_message(event, vk_api):
     else:
         check_answer(
             event, vk_api, keyboard,
-            user_message, question_and_answer)
+            user_message, question_and_answer, redis_conn)
 
 
 if __name__ == "__main__":
+    load_dotenv()
+    redis_conn = redis.Redis(host=os.getenv('REDIS_HOST'), password=os.getenv(
+        'REDIS_PASSWORD'), port=os.getenv('REDIS_PORT'), db=0)
     while True:
         try:
             vk_session = vk_api.VkApi(token=os.getenv('VK_TOKEN'))
@@ -96,7 +97,7 @@ if __name__ == "__main__":
             longpoll = VkLongPoll(vk_session)
             for event in longpoll.listen():
                 if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                    process_message(event, vk_api)
+                    process_message(event, vk_api, redis_conn)
         except ConnectionError:
             logging.exception('ConnectionError - перезапуск через 30 секунд')
             time.sleep(30)
