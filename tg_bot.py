@@ -25,14 +25,9 @@ def start(update: Update, context: CallbackContext):
     return SEND_QUESTION
 
 
-def help_command(update: Update, context: CallbackContext):
-    """Send a message when the command /help is issued."""
-    update.message.reply_text('Help!')
-
-
 def send_question(update: Update, context: CallbackContext):
     question, answer = random.choice(list(QUIZ.items()))
-    REDIS_CONN.set(
+    redis_conn.set(
         f"tg-{update.effective_user.id}", json.dumps([question, answer]))
     update.message.reply_text(question)
     return CHECK_ANSWER
@@ -55,7 +50,7 @@ def error_handler(update: Update, context: CallbackContext):
 
 def check_answer(update: Update, context: CallbackContext):
     user_message = update.message.text
-    question_and_answer = REDIS_CONN.get(f"tg-{update.effective_user.id}")
+    question_and_answer = redis_conn.get(f"tg-{update.effective_user.id}")
     question, answer = json.loads(question_and_answer)
     short_answer = answer[answer.find('\n')+1:answer.find('.')]
     if user_message == 'Новый вопрос':
@@ -74,7 +69,7 @@ def check_answer(update: Update, context: CallbackContext):
 
 if __name__ == '__main__':
     load_dotenv()
-    REDIS_CONN = redis.Redis(
+    redis_conn = redis.Redis(
         host=os.getenv('REDIS_HOST'), password=os.getenv('REDIS_PASSWORD'),
         port=os.getenv('REDIS_PORT'), db=0)
     updater = Updater(token=os.getenv("TG_TOKEN"), use_context=True)
@@ -94,7 +89,6 @@ if __name__ == '__main__':
     )
     dispatcher.add_handler(conv_handler)
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("help", help_command))
 
     updater.start_polling()
 
