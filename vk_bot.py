@@ -66,7 +66,7 @@ def check_answer(event, vk_api, keyboard, user_message, question_and_answer):
             message='Я не понял команду или ответ неверный.')
 
 
-def main(event, vk_api):
+def process_message(event, vk_api):
     user_message = event.text
     keyboard = create_keyboard()
     question_and_answer = REDIS_CONN.get(f"vk-{event.user_id}")
@@ -96,7 +96,7 @@ if __name__ == "__main__":
             longpoll = VkLongPoll(vk_session)
             for event in longpoll.listen():
                 if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                    main(event, vk_api)
+                    process_message(event, vk_api)
         except ConnectionError:
             logging.exception('ConnectionError - перезапуск через 30 секунд')
             time.sleep(30)

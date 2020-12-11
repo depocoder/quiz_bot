@@ -13,10 +13,6 @@ from quiz import parse_quiz
 
 logger = logging.getLogger(__name__)
 SEND_QUESTION, CHECK_ANSWER = range(2)
-load_dotenv()
-REDIS_CONN = redis.Redis(
-    host=os.getenv('REDIS_HOST'), password=os.getenv('REDIS_PASSWORD'),
-    port=os.getenv('REDIS_PORT'), db=0)
 QUIZ = parse_quiz()
 
 
@@ -77,6 +73,10 @@ def check_answer(update: Update, context: CallbackContext):
 
 
 if __name__ == '__main__':
+    load_dotenv()
+    REDIS_CONN = redis.Redis(
+        host=os.getenv('REDIS_HOST'), password=os.getenv('REDIS_PASSWORD'),
+        port=os.getenv('REDIS_PORT'), db=0)
     updater = Updater(token=os.getenv("TG_TOKEN"), use_context=True)
     dispatcher = updater.dispatcher
     dispatcher.add_error_handler(error_handler)
