@@ -3,6 +3,7 @@ import random
 import json
 import time
 import logging
+
 from dotenv import load_dotenv
 import vk_api
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
@@ -10,6 +11,7 @@ from vk_api.utils import get_random_id
 from vk_api.longpoll import VkLongPoll, VkEventType
 import redis
 from requests.exceptions import ConnectionError
+
 from quiz import parse_quiz
 
 

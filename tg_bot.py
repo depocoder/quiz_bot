@@ -3,12 +3,14 @@ from functools import partial
 import os
 import json
 import random
+
 from dotenv import load_dotenv
 import redis
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Updater, CommandHandler, MessageHandler, Filters, CallbackContext,
     ConversationHandler)
+
 from quiz import parse_quiz
 
 
