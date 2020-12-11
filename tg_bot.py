@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 import os
 import json
 import random
@@ -25,7 +26,7 @@ def start(update: Update, context: CallbackContext):
     return SEND_QUESTION
 
 
-def send_question(update: Update, context: CallbackContext):
+def send_question(redis_conn, update: Update, context: CallbackContext):
     question, answer = random.choice(list(QUIZ.items()))
     redis_conn.set(
         f"tg-{update.effective_user.id}", json.dumps([question, answer]))
@@ -48,7 +49,7 @@ def error_handler(update: Update, context: CallbackContext):
         msg="Exception while handling an update:", exc_info=context.error)
 
 
-def check_answer(update: Update, context: CallbackContext):
+def check_answer(redis_conn, update: Update, context: CallbackContext):
     user_message = update.message.text
     question_and_answer = redis_conn.get(f"tg-{update.effective_user.id}")
     question, answer = json.loads(question_and_answer)
@@ -72,6 +73,8 @@ if __name__ == '__main__':
     redis_conn = redis.Redis(
         host=os.getenv('REDIS_HOST'), password=os.getenv('REDIS_PASSWORD'),
         port=os.getenv('REDIS_PORT'), db=0)
+    p_send_question = partial(send_question, redis_conn)
+    p_check_answer = partial(check_answer, redis_conn)
     updater = Updater(token=os.getenv("TG_TOKEN"), use_context=True)
     dispatcher = updater.dispatcher
     dispatcher.add_error_handler(error_handler)
@@ -81,9 +84,9 @@ if __name__ == '__main__':
         states={
             SEND_QUESTION: [
                 MessageHandler(Filters.regex('^(Новый вопрос|Сдаться)$'),
-                               send_question)],
+                               p_send_question)],
 
-            CHECK_ANSWER: [MessageHandler(Filters.text, check_answer)],
+            CHECK_ANSWER: [MessageHandler(Filters.text, p_check_answer)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
